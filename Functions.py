@@ -35,7 +35,7 @@ class ZDT2:
         return f1, f2
 
 class ZDT1:
-    def __init__(x):
+    def zdt1(x):
         x = np.atleast_2d(x)
         f1 = np.asarray(x[:, 0], dtype=np.float64)  
         g = np.asarray(1 + 9 * np.sum(x[:, 1:], axis=1)/ (x.shape[1] -1), dtype=np.float64)  

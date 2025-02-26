@@ -22,7 +22,7 @@ class Bayesian:
         self.lhs_samples = np.array(self.lhs_samples)
         print(self.lhs_samples)
         
-        self.y_vals = Functions.ZDT1.__init__(self.lhs_samples)
+        self.y_vals = Functions.ZDT1.zdt1(self.lhs_samples)
 
         weights = np.ones(self.y_vals.shape[1]) / self.y_vals.shape[1]
 
@@ -47,7 +47,7 @@ class Bayesian:
     def run_ga(self): 
         print('running GA...')
 
-        num_generations = 100
+        num_generations = 10
         num_genes = 2
         sol_per_pop = 10
         num_parents_mating = round(sol_per_pop/2)
@@ -95,7 +95,7 @@ class Bayesian:
             self.x_best, self.fitness_best, self.index_best = self.GA_instance.best_solution()
             self.x_best = np.array(self.x_best).reshape(1, -1)
 
-            self.y_next = Functions.ZDT1.__init__(self.x_best)
+            self.y_next = Functions.ZDT1.zdt1(self.x_best)
             new_Y = np.dot(self.y_next, weights)
             
             self.lhs_samples = np.vstack((self.lhs_samples, self.x_best))
@@ -105,7 +105,7 @@ class Bayesian:
             all_y1.append(self.y_next[0][0])
             all_y2.append(self.y_next[0][1])
 
-            Functions.plots.plot_zdt1(all_y1, all_y2, f'Objective_space_{i}')
+            Functions.plots.plot_zdt1(all_y1, all_y2, f'Objective_space_{i+1}')
         
         print('lhs samples: ', self.lhs_samples)
         print('y_vals: ', self.y_vals)
