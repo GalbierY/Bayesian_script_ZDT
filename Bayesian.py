@@ -14,22 +14,19 @@ class Bayesian:
     def initial_sets(self):
         self.n_samples = self.number_samples
 
-        self.lhs_samples = np.round(lhs(2, samples = self.n_samples), 2)
+        self.lhs_samples = lhs(2, samples = self.n_samples)
 
-        for i in range(2):
-            self.lhs_samples[:, i] = self.lhs_samples[:,i] * (self.x_maximum[i] - self.x_minimum[i]) + self.x_minimum[i]
+        
+        self.lhs_samples = self.lhs_samples * (np.array(self.x_maximum) - np.array(self.x_minimum)) + np.array(self.x_minimum)
         
         self.lhs_samples = np.array(self.lhs_samples)
         print(self.lhs_samples)
-        self.y_vals = np.round(np.array([Functions.ZDT2(np.array(x))for x in self.lhs_samples]), 2)
+        
+        self.y_vals = Functions.ZDT1.__init__(self.lhs_samples)
 
-        y_mean = np.mean(self.y_vals, axis=0)
-        y_std = np.std(self.y_vals, axis=0)
-        self.y_vals_norm = Functions.normalization.standardize(self.y_vals)
+        weights = np.ones(self.y_vals.shape[1]) / self.y_vals.shape[1]
 
-        weights = np.ones(self.y_vals_norm.shape[1]) / self.y_vals_norm.shape[1]
-
-        self.Y = np.dot(self.y_vals_norm, weights)
+        self.Y = np.dot(self.y_vals, weights)
 
         kernel = 1.0*Matern(length_scale=1.0, nu=1.5)
 
@@ -39,18 +36,18 @@ class Bayesian:
         print('y_vals: ', self.y_vals)
         print('Y: ', self.Y)
 
-        return self.gp_model, self.lhs_samples, self.y_vals_norm , y_std, y_mean, self.Y, weights
+        return self.gp_model, self.lhs_samples,self.y_vals, self.Y, weights
 
     
     def fitness(self, ga_instance, solution, solution_id):
-        fitness = 1/Functions.aq_func.aquisition_function_EI(solution, self.gp_model, np.min(self.Y)) + 1e-9
+        fitness = Functions.aq_func.aquisition_function_EI(solution, self.gp_model, np.min(self.Y), 2)
         
-        return float(fitness)
+        return fitness.item()
 
     def run_ga(self): 
         print('running GA...')
 
-        num_generations = 10
+        num_generations = 100
         num_genes = 2
         sol_per_pop = 10
         num_parents_mating = round(sol_per_pop/2)
@@ -66,12 +63,12 @@ class Bayesian:
                         sol_per_pop=sol_per_pop,
                         num_genes=num_genes,
                         gene_space=gene_space,
-                        gene_type=[[float,2],[float,2]],
+                        gene_type=[float,float],
                         parent_selection_type="tournament",
                         save_solutions=True,
+                        keep_parents =1,
                         save_best_solutions=True,
                         mutation_type="adaptive",
-                        mutation_num_genes=[2,1],
                         mutation_percent_genes=[0.1, 0.3],
                         stop_criteria='saturate_100',
                         allow_duplicate_genes=True)
@@ -87,28 +84,31 @@ class Bayesian:
         self.x_minimum = [float(n) for n in minimus]
         self.n_iterations = int(n_iteration)
 
-        self.gp_model, self.lhs_samples, self.y_vals_norm , y_std, y_mean, self.Y, weights = self.initial_sets()
+        self.gp_model, self.lhs_samples,self.y_vals, self.Y, weights = self.initial_sets()
+
+        all_y1, all_y2 = [], []
 
         for i in range(self.n_iterations):
             self.gp_model.fit(self.lhs_samples, self.Y)
 
             self.GA_instance = self.run_ga()
             self.x_best, self.fitness_best, self.index_best = self.GA_instance.best_solution()
+            self.x_best = np.array(self.x_best).reshape(1, -1)
 
-            self.y_next = np.round(Functions.ZDT2(self.x_best), 2)
-            y_next_norm = (self.y_next - y_mean) / y_std
-
-            self.y_vals_norm = np.vstack((self.y_vals_norm, y_next_norm))
-
+            self.y_next = Functions.ZDT1.__init__(self.x_best)
+            new_Y = np.dot(self.y_next, weights)
+            
             self.lhs_samples = np.vstack((self.lhs_samples, self.x_best))
+            self.y_vals = np.vstack((self.y_vals, self.y_next))
+            self.Y = np.append(self.Y, new_Y)
 
-            self.Y = np.dot(self.y_vals_norm, weights)
+            all_y1.append(self.y_next[0][0])
+            all_y2.append(self.y_next[0][1])
+
+            Functions.plots.plot_zdt1(all_y1, all_y2, f'Objective_space_{i}')
         
         print('lhs samples: ', self.lhs_samples)
         print('y_vals: ', self.y_vals)
-        print('self.Y: ', self.Y)
-
-        self.y_vals = Functions.normalization.reverse_standardize(self.y_vals_norm, y_mean, y_std)
 
         self.y_vals_for_pf = np.array([[x[0], x[1]] for x in self.y_vals])
 
